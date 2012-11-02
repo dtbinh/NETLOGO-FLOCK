@@ -1,0 +1,136 @@
+turtles-own [
+  flockmates         ; agentset nearby
+  nearest-neighbor   ; closest one of all flockmates
+]
+globals [
+  black-patches
+]
+
+;;;SETUP and GO
+;; SETUP button
+to setup
+  clear-all
+  crt population
+    [ set color red - 2 + random 10 
+      set size 2  
+      setxy random-xcor random-ycor ]
+  ;setup-patches
+  draw-box
+  reset-ticks
+end
+
+;; GO button
+to go
+  ask turtles [ flock bounce]
+  repeat 5 [ ask turtles [ fd 0.2 ] display ]
+  tick
+end
+
+
+
+
+;;; BASIC FUNCTIONS
+;; function: draw-box
+to draw-box
+  ask patches
+    [ ifelse (pxcor > (max-pxcor - edge-size)) or (pxcor < (min-pxcor + edge-size)) or
+             (pycor > (max-pycor - edge-size)) or (pycor < (min-pycor + edge-size))
+        [ set pcolor red ]
+        [ set pcolor white ] ]
+  set black-patches patches with [pcolor = white]
+  ask turtles
+  [
+    move-to one-of black-patches
+    rt random-float 360
+  ]
+end
+
+;;function: bounce
+to bounce
+  let box-edge edge-size + 1
+  if (patch-at 0 box-edge = nobody     and ((heading > 270) or (heading < 90))) or
+     (patch-at 0 (- box-edge) = nobody and ((heading > 90) and (heading < 270)))
+    [ set heading (180 - heading) ]
+  if (patch-at box-edge 0 = nobody     and ((heading > 0) and (heading < 180))) or
+     (patch-at (- box-edge) 0 = nobody and ((heading > 180)))
+    [ set heading (- heading) ]
+end
+
+;; function: flock (find-flockmates, find-nearest-neighbor, separate, align, cohere)
+to flock  
+  find-flockmates
+  if any? flockmates
+    [ find-nearest-neighbor
+      ifelse distance nearest-neighbor < minimum-separation
+        [ separate ]
+        [ align
+          cohere ] ]
+end
+
+;; function: find-flockmates
+to find-flockmates  
+  set flockmates other turtles in-radius vision
+end
+
+;; function: find-nearest-neighbor
+to find-nearest-neighbor
+  set nearest-neighbor min-one-of flockmates [distance myself]
+end
+
+
+
+;;; Rule I: SPARATE
+;;function: separat (turn-away)
+to separate 
+  turn-away ([heading] of nearest-neighbor) max-separate-turn
+end
+
+;; function: turn-away (turn-at-most)
+to turn-away [new-heading max-turn]
+  turn-at-most (subtract-headings heading new-heading) max-turn
+end
+
+;; function: trun-at-most
+to turn-at-most [turn max-turn]
+  ifelse abs turn > max-turn
+    [ ifelse turn > 0
+        [ rt max-turn ]
+        [ lt max-turn ] ]
+    [ rt turn ]
+end
+
+
+;;; Rule II: ALIGN
+;; function: align (turn-towards, average-flockmate-heading)
+to align  
+  turn-towards average-flockmate-heading max-align-turn
+end
+
+;; function: turn-towards(turn-at-most)
+to turn-towards [new-heading max-turn]  
+  turn-at-most (subtract-headings new-heading heading) max-turn
+end
+
+;; function: average-flockmate-heading (to report/report)
+to-report average-flockmate-heading  
+  let x-component sum [dx] of flockmates
+  let y-component sum [dy] of flockmates
+  ifelse x-component = 0 and y-component = 0
+    [ report heading ]
+    [ report atan x-component y-component ]
+end
+
+;;; Rule III: COHERE
+;; function: cohere (average-heading-towards-flockmates
+to cohere
+  turn-towards average-heading-towards-flockmates max-cohere-turn
+end
+
+;; function: average-heading-towards-flockmates (to report/report)
+to-report average-heading-towards-flockmates  
+  let x-component mean [sin (towards myself + 180)] of flockmates
+  let y-component mean [cos (towards myself + 180)] of flockmates
+  ifelse x-component = 0 and y-component = 0
+    [ report heading ]
+    [ report atan x-component y-component ]
+end
